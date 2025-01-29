@@ -19,11 +19,11 @@ import re
 
 API_KEY = ""
 SCAN_TOKEN = ""
-BASE_URL_API = "https://api.cytrix.io/BurpSuite_"
+BASE_URL_API = "https://api.cytrix.io/Interception_"
 API_ALIVE_URL   = BASE_URL_API + "GetScanStatus"
 API_PAUSE_URL   = BASE_URL_API + "TargetPause"
 API_UNPAUSE_URL = BASE_URL_API + "TargetUnPause"
-API_FORWARD_URL = BASE_URL_API + "UploadBurpFile"
+API_FORWARD_URL = BASE_URL_API + "UploadFile"
 CHECK_CREDENTIALS = BASE_URL_API + "CheckCreds"
 
 class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextMenuFactory):
