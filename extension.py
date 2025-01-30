@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+"""
+CytrixExtension_PostJSON_FullLogging.py
+---------------------------------------
+1. Calls api.cytrix.io (alive, pause, unpause, forward) with POST JSON.
+2. Logs ALL requests in the table:
+   - "Yes" if forwarded,
+   - "No" if host mismatch,
+   - "Credentials are not set" if missing API key or token.
+3. Adds a "Clean" button to remove all rows from the table.
+4. Right-click "Send request to Cytrix" forcibly forwards if credentials exist,
+   ignoring the host pattern.
+
+Author: CYTRIX
+"""
 
 import json
 
@@ -86,6 +101,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                 # * => forward all
                 forward_now = True
             else:
+                if host.startswith("www."):
+                    host = host.replace("www.", "", 1)
                 forward_now = bool(re.match(self._targetRegex, host))
             print("DEBUG: logreq3" , forward_now, host)
             if forward_now:
@@ -250,16 +267,35 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
         print("DEBUG: _saveSettings => key=%s token=%s target=%s => checkCreds => result=%s"
               % (self._api_key, self._token, self._target, message))
 
-    def _wildcard_to_regex(self, pattern):
-        escaped = ""
-        for char in pattern:
-            if char == '*':
-                escaped += ".*"
-            elif char in ".+()[]{}|^$?\\":
-                escaped += "\\" + char
-            else:
-                escaped += char
-        return re.compile("^" + escaped + "$", re.IGNORECASE)
+    def _wildcard_to_regex(self, patterns):
+        res = []
+        for pattern in patterns.split(","):
+            pattern = pattern.strip()
+            if pattern.startswith("http://"):
+                pattern = pattern.replace("http://", "", 1)
+            elif pattern.startswith("https://"):
+                pattern = pattern.replace("https://", "", 1)
+            elif pattern.startswith("://"):
+                pattern = pattern.replace("://", "", 1)
+            elif pattern.startswith("//"):
+                pattern = pattern.replace("//", "", 1)
+
+            if pattern.startswith("www."):
+                pattern = pattern.replace("www.", "", 1)
+            if "/" in pattern:
+                pattern = pattern.split("/", 1)[0]
+
+            escaped = ""
+            for char in pattern:
+                if char == '*':
+                    escaped += ".*"
+                elif char in ".+()[]{}|^$?\\":
+                    escaped += "\\" + char
+                else:
+                    escaped += char
+            res.append("^" + escaped + "$")
+        res = "(" + "|".join(res) + ")"
+        return re.compile(res, re.IGNORECASE)
 
     #
     # Build UI
