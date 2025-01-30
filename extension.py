@@ -455,12 +455,11 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
     #
     def _forward_request(self, api_key, token, request_data, response_data, url, port, protocol):
         try:
-            print("DEBUG: _forward_request =>", API_FORWARD_URL, url, port, protocol)
+            print("DEBUG: _forward_request =>", API_FORWARD_URL, url)
             json_body = ('{"app": "burpsuite","apiKey":"%s","token":"%s","request":"%s","response":"%s", "url":"%s","port":"%s","protocol":"%s"}') % (
                 api_key, token, string_to_base64(request_data),
                 string_to_base64(response_data), url, port, protocol
             )
-            print(json_body)
             try:
                 resp_str, code = self._postJson(API_FORWARD_URL, json_body)
                 print("DEBUG: forward => code=%d, body=%s" % (code, resp_str))
