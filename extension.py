@@ -85,12 +85,13 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
         try:
             analyzed = self._helpers.analyzeRequest(messageInfo)
             urlObj   = analyzed.getUrl()
-
             if not urlObj:
                 self._logRequestInTable(messageInfo, False)  # No URL => 'No'
                 return
 
             host = urlObj.getHost()
+            path = urlObj.getPath()
+
             # Check credentials
             if not api_key or not token:
                 self._logRequestInTable(messageInfo, "Credentials are not set")
@@ -103,7 +104,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
             else:
                 if host.startswith("www."):
                     host = host.replace("www.", "", 1)
-                forward_now = bool(re.match(self._targetRegex, host))
+                forward_now = bool(re.match(self._targetRegex, host+path))
             print("DEBUG: logreq3" , forward_now, host)
             if forward_now:
                 # We forward => 'Yes'
@@ -216,17 +217,19 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
 
 
         target_raw = self._targetField.getText().strip()
+        target_raw = target_raw.replace(" ", "")
 
         # 2) If target is empty, treat as '*'
         if not target_raw:
             target_raw = "*"
-        self._target = target_raw
 
         # 3) Build or clear the regex
-        if self._target == "*":
-            self._targetRegex = None  # '*' => match everything
+        if target_raw == "*":
+            self._targetRegex = None
         else:
-            self._targetRegex = self._wildcard_to_regex(self._target)
+            self._targetRegex = self._wildcard_to_regex(target_raw)
+
+
 
         # Now we check the credentials against https://api.cytrix.io/checkCreds
         # using our existing _postJson method.
@@ -265,7 +268,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
 
         # Log what happened
         print("DEBUG: _saveSettings => key=%s token=%s target=%s => checkCreds => result=%s"
-              % (self._api_key, self._token, self._target, message))
+              % (self._api_key, self._token, target_raw, message))
 
     def _wildcard_to_regex(self, patterns):
         res = []
@@ -277,13 +280,9 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                 pattern = pattern.replace("https://", "", 1)
             elif pattern.startswith("://"):
                 pattern = pattern.replace("://", "", 1)
-            elif pattern.startswith("//"):
-                pattern = pattern.replace("//", "", 1)
 
             if pattern.startswith("www."):
                 pattern = pattern.replace("www.", "", 1)
-            if "/" in pattern:
-                pattern = pattern.split("/", 1)[0]
 
             escaped = ""
             for char in pattern:
@@ -295,6 +294,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                     escaped += char
             res.append("^" + escaped + "$")
         res = "(" + "|".join(res) + ")"
+        print(res, "sahar")
         return re.compile(res, re.IGNORECASE)
 
     #
@@ -315,7 +315,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
         self._tokenField = JTextField("", 20)
         inputPanel.add(self._tokenField)
 
-        inputPanel.add(JLabel("Target (e.g. *=all, *.example.com, *.xxxx.*.example.com):"))
+        inputPanel.add(JLabel("Target (e.g. *=all, example.com/dir1/*, *.xxxx.*.example.com):"))
         self._targetField = JTextField("", 20)
         inputPanel.add(self._targetField)
         panel.add(inputPanel)
