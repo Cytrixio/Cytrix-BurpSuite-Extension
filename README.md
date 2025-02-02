@@ -5,10 +5,10 @@ https://www.jython.org/download.html
 How to install Jython - 
 <br>
 Open Burpsuite and click on "settings", click on Extensions<br>
-Inside the section "Java Environment" choose you Standalone JAR File<br><br>
+Inside the section "Python environment" choose your Standalone JAR File<br><br>
 
 <hr>
 <h2>Install CYTRIX Extension</h2>
-Open Burpsuite and got to "Extensions" Tab.<br>
+Open Burpsuite and go to "Extensions" Tab.<br>
 Click "Add" and choose "python"<br>
 Choose cytrixExtension.py
