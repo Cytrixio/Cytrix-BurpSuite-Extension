@@ -31,6 +31,7 @@ from java.io import BufferedReader, InputStreamReader, OutputStreamWriter
 import base64
 import time
 import re
+import threading
 
 API_KEY = ""
 SCAN_TOKEN = ""
@@ -283,7 +284,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
 
             if pattern.startswith("www."):
                 pattern = pattern.replace("www.", "", 1)
-
+            if "/" not in pattern:
+                pattern += "*"
             escaped = ""
             for char in pattern:
                 if char == '*':
@@ -461,8 +463,9 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                 string_to_base64(response_data), url, port, protocol
             )
             try:
-                resp_str, code = self._postJson(API_FORWARD_URL, json_body)
-                print("DEBUG: forward => code=%d, body=%s" % (code, resp_str))
+                threading.Thread(target=self._postJson, args=[API_FORWARD_URL, json_body]).start()
+                # resp_str, code = self._postJson(API_FORWARD_URL, json_body)
+
             except Exception as e:
                 print("DEBUG: _forward_request exception ->", e)
         except Exception as e:
@@ -471,60 +474,64 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
     # POST JSON utility
     #
     def _postJson(self, url_str, json_body):
-        """
-        Send a POST request with a JSON body to the specified url_str using Java URLConnection.
+        try:
+            """
+            Send a POST request with a JSON body to the specified url_str using Java URLConnection.
+    
+            Steps:
+            1. Open a connection to the URL.
+            2. Enable output mode to allow sending POST data.
+            3. Set the request method to POST and the Content-Type header to 'application/json'.
+            4. Write the JSON body to the server.
+            5. Read the response status and body from the server.
+            6. Return the server's response body and HTTP status code to the caller.
+            """
+            print("DEBUG: _postJson => Starting POST to '%s' with JSON body (truncated): %s..."
+                  % (url_str, json_body[:150]))
 
-        Steps:
-        1. Open a connection to the URL.
-        2. Enable output mode to allow sending POST data.
-        3. Set the request method to POST and the Content-Type header to 'application/json'.
-        4. Write the JSON body to the server.
-        5. Read the response status and body from the server.
-        6. Return the server's response body and HTTP status code to the caller.
-        """
-        print("DEBUG: _postJson => Starting POST to '%s' with JSON body (truncated): %s..."
-              % (url_str, json_body[:150]))
+            # 1. Create a URL object from the string and open a connection.
+            url = URL(url_str)
+            conn = url.openConnection()
+            print("DEBUG: _postJson => Successfully opened connection to %s" % url_str)
 
-        # 1. Create a URL object from the string and open a connection.
-        url = URL(url_str)
-        conn = url.openConnection()
-        print("DEBUG: _postJson => Successfully opened connection to %s" % url_str)
+            # 2. Enable output so we can send POST data in the body.
+            conn.setDoOutput(True)
 
-        # 2. Enable output so we can send POST data in the body.
-        conn.setDoOutput(True)
+            # 3. We want a POST request, and we set the Content-Type to JSON.
+            conn.setRequestMethod("POST")
+            conn.setRequestProperty("Content-Type", "application/json")
 
-        # 3. We want a POST request, and we set the Content-Type to JSON.
-        conn.setRequestMethod("POST")
-        conn.setRequestProperty("Content-Type", "application/json")
+            # 4. Write the JSON body to the server using an OutputStreamWriter.
+            output_writer = OutputStreamWriter(conn.getOutputStream(), "UTF-8")
+            output_writer.write(json_body)
+            output_writer.flush()
+            output_writer.close()
+            print("DEBUG: _postJson => Wrote JSON body to server.")
 
-        # 4. Write the JSON body to the server using an OutputStreamWriter.
-        output_writer = OutputStreamWriter(conn.getOutputStream(), "UTF-8")
-        output_writer.write(json_body)
-        output_writer.flush()
-        output_writer.close()
-        print("DEBUG: _postJson => Wrote JSON body to server.")
+            # 5. Read the server's HTTP response code.
+            code = conn.getResponseCode()
+            print("DEBUG: _postJson => Server responded with HTTP status code %d" % code)
 
-        # 5. Read the server's HTTP response code.
-        code = conn.getResponseCode()
-        print("DEBUG: _postJson => Server responded with HTTP status code %d" % code)
-
-        # 5a. Next, we read the response body from the server.
-        reader = BufferedReader(InputStreamReader(conn.getInputStream(), "UTF-8"))
-        lines = []
-        line = reader.readLine()
-        # Keep reading until no more lines are available.
-        while line is not None:
-            lines.append(line)
+            # 5a. Next, we read the response body from the server.
+            reader = BufferedReader(InputStreamReader(conn.getInputStream(), "UTF-8"))
+            lines = []
             line = reader.readLine()
-        reader.close()
+            # Keep reading until no more lines are available.
+            while line is not None:
+                lines.append(line)
+                line = reader.readLine()
+            reader.close()
 
-        # Convert the list of lines into a single string.
-        resp_str = "\n".join(lines)
-        print("DEBUG: _postJson => Response body (truncated): %s..."
-              % resp_str[:150])
 
-        # 6. Return the server's response body and the status code to the caller.
-        return resp_str, code
+            # Convert the list of lines into a single string.
+            resp_str = "\n".join(lines)
+            print("DEBUG: _postJson => Response body (truncated): %s..."
+                  % resp_str[:150])
+            print("DEBUG: forward => code=%d, body=%s" % (code, resp_str))
+            # 6. Return the server's response body and the status code to the caller.
+            return resp_str, code
+        except Exception as e:
+            print("DEBUG: _postJson => %s" % e)
 
     #
     # Insert row in table -> "Yes", "No", or "Credentials are not set"
