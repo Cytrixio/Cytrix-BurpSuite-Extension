@@ -50,12 +50,13 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
         # Initialize our new variable
         self.just_forwarded = False
         self._InterceptIsStatus = True
+
         # Register
         callbacks.registerHttpListener(self)
         callbacks.registerContextMenuFactory(self)
 
         self._checkScanStatus()
-        print("DEBUG: Extension loaded. Logs 'Yes', 'No', or 'Credentials not set' in the table, plus 'Clean' button.")
+        print("DEBUG: CYTRIX Extension loaded.")
 
     def getTabCaption(self):
         return CYTRIX
@@ -64,9 +65,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
         return self._mainPanel
 
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):
-        """For each request, decide if we forward or not, then log 'Yes', 'No', or 'Credentials...'."""
-        if not messageIsRequest:
-            return
+        # if not messageIsRequest:
+        #     return
 
         api_key = API_KEY
         token   = getattr(self, "_token", "")
@@ -104,7 +104,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                 self._forward_request(api_key, token, request_str, response_str,
                                       messageInfo.getUrl(),messageInfo.getPort(), messageInfo.getProtocol())
                 print("DEBUG: logreq2")
-                self._logRequestInTable(messageInfo, True)
+                self._logRequestInTable(messageInfo, True, response=response_str)
             else:
                 # Mismatch => 'No'
                 self._logRequestInTable(messageInfo, False)
@@ -123,7 +123,6 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
         return menu
 
     def _handleSendToCytrix(self, invocation):
-        """Forcibly forward selected messages ignoring the host match, then log 'Yes' or 'Credentials...'."""
         msgs = invocation.getSelectedMessages()
         if not msgs:
             print("DEBUG: No messages selected in context menu.")
@@ -145,7 +144,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                                           url, port, pratocol)
                     # Because we forcibly forward, mark it 'Yes'
                     print("DEBUG: logreq1")
-                    self._logRequestInTable(msg, True)
+                    self._logRequestInTable(msg, True, response=response_str)
             except Exception as e:
                 print("DEBUG: context menu forward =>", e)
                 self._logRequestInTable(msg, False)
@@ -326,7 +325,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
         panel.add(cPanel)
 
 
-        columns = ["Time", "Method", "Host", "Path", "Length", "Forwarded"]
+        columns = ["Time", "Method", "Host", "Path", "Length", "Response", "Forwarded"]
         self._tableModel = DefaultTableModel(columns, 0)
         self._table      = JTable(self._tableModel)
         scrollPane       = JScrollPane(self._table)
@@ -475,7 +474,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
         except Exception as e:
             print("DEBUG: _postJson => %s" % e)
 
-    def _logRequestInTable(self, messageInfo, forwarded):
+    def _logRequestInTable(self, messageInfo, forwarded, response=None):
         """
         'forwarded' can be True => 'Yes'
                      False => 'No'
@@ -512,7 +511,12 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                 if self.just_forwarded:
                     return
 
-            row = [now, method, host, path, length, forwarded_str]
+            if response is not None and response != "None":
+                response = "Yes"
+            else:
+                response = "No"
+
+            row = [now, method, host, path, length, response, forwarded_str]
             self._tableModel.addRow(row)
             print("DEBUG: Logged row =>", row)
 
