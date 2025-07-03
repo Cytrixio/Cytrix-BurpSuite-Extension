@@ -221,7 +221,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                         message = LOGIN_SUCCESSFUL
                     else:
                         message = LOGIN_FAILED
-                except:
+                except Exception:
                     message = LOGIN_FAILED
             else:
                 message = TARGET_CHANGED
@@ -368,7 +368,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, ActionListener, IContextM
                     self._setScanNotAlive()
                 else:
                     self._setScanNotAlive()
-            except:
+            except Exception:
                 self._setScanNotAlive()
         except Exception as e:
             print("DEBUG: _checkScanStatus exception ->", e)
